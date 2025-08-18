@@ -65,7 +65,7 @@ function Rag() {
       if (industry) filters.industry = industry
       if (docType) filters.doc_type = docType
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/rag/search`, {
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/rag/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

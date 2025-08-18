@@ -1,0 +1,13 @@
+{
+  "name": "city-opportunity-capstone",
+  "version": "1.0.0",
+  "description": "City Opportunity MVP with RAG Knowledge Base",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "cd frontend && npm run dev",
+    "install-deps": "cd frontend && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,0 +1,45 @@
+services:
+  # Backend API Service
+  - type: web
+    name: capstone-backend
+    runtime: python3
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT"
+    plan: free
+    healthCheckPath: /docs
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MILVUS_URI
+        sync: false
+      - key: MILVUS_TOKEN
+        sync: false
+      - key: MILVUS_DB
+        value: capstone
+      - key: MILVUS_COLLECTION
+        value: kb_chunks
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Frontend Service
+  - type: web
+    name: capstone-frontend
+    runtime: node
+    buildCommand: "cd frontend && npm ci && npm run build"
+    staticPublishPath: "./frontend/dist"
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: capstone-backend
+          property: host
+
+databases:
+  # Note: Render's free tier doesn't include databases
+  # Your SQLite file will be stored in the backend service
+  # For production, consider upgrading to a managed database

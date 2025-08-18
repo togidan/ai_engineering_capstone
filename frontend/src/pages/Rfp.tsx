@@ -9,7 +9,6 @@ import {
   Box,
   Alert,
   AlertIcon,
-  Spinner,
   SimpleGrid,
   Badge,
   Divider,
@@ -21,7 +20,7 @@ import {
   Td,
   useToast
 } from '@chakra-ui/react';
-import { UploadIcon, SearchIcon, CopyIcon } from '@chakra-ui/icons';
+import { SearchIcon, CopyIcon } from '@chakra-ui/icons';
 import SlidingToggle from '../components/SlidingToggle';
 import FileUpload from '../components/FileUpload';
 
@@ -285,6 +284,7 @@ Global Infrastructure & Operations Division
 [Address]
 [Phone Number]`;
 
+/* Removed unused SAMPLE_RFP
 const SAMPLE_RFP = `INDUSTRIAL DEVELOPMENT AUTHORITY
 Request for Proposal - Economic Development Partnership
 
@@ -335,6 +335,7 @@ Questions due by February 28, 2024. Oral presentations may be requested from sho
 
 Contact: Sarah Mitchell, Economic Development Director
 smitchell@metroida.org | (555) 123-4567`;
+*/
 
 export default function Rfp() {
   const [rfpText, setRfpText] = useState('');

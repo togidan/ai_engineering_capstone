@@ -20,7 +20,6 @@ import {
   Input,
   FormControl,
   FormLabel,
-  Textarea,
   Progress,
   Divider,
   Stat,
@@ -28,7 +27,7 @@ import {
   StatNumber,
   StatGroup
 } from '@chakra-ui/react'
-import { AttachmentIcon, SearchIcon } from '@chakra-ui/icons'
+import { AttachmentIcon } from '@chakra-ui/icons'
 
 interface UploadResponse {
   doc_id: number
@@ -90,7 +89,7 @@ function KnowledgeBase() {
       if (title) formData.append('title', title)
       if (sourceUrl) formData.append('source_url', sourceUrl)
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/kb/upload`, {
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/upload`, {
         method: 'POST',
         body: formData
       })
@@ -123,7 +122,7 @@ function KnowledgeBase() {
   const loadStats = async () => {
     setLoadingStats(true)
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
       if (response.ok) {
         const data = await response.json()
         setStats(data)
