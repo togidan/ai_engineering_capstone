@@ -148,12 +148,17 @@ function KnowledgeBase() {
       
       if (response.ok) {
         const data = await response.json()
+        console.log('Bootstrap response:', data)
         // Reload stats to show the new data
         await loadStats()
         setError('')
       } else {
         const errorData = await response.json()
-        setError(errorData.detail || 'Failed to load demo data')
+        console.error('Bootstrap error:', errorData)
+        const errorMsg = typeof errorData.detail === 'object' 
+          ? `Error: ${errorData.detail.error}\nDetails: ${errorData.detail.stderr || errorData.detail.stdout || ''}`
+          : errorData.detail || 'Failed to load demo data'
+        setError(errorMsg)
       }
     } catch (err) {
       console.error('Failed to bootstrap data:', err)

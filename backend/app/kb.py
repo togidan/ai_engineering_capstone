@@ -379,21 +379,36 @@ async def bootstrap_demo_data(request: Request):
         # Run the script
         result = subprocess.run([
             sys.executable, str(script_path)
-        ], capture_output=True, text=True, cwd=str(backend_dir))
+        ], capture_output=True, text=True, cwd=str(backend_dir), timeout=300)  # 5 minute timeout
+        
+        logger.info(f"Bootstrap script stdout: {result.stdout}")
+        if result.stderr:
+            logger.warning(f"Bootstrap script stderr: {result.stderr}")
         
         if result.returncode != 0:
-            logger.error(f"Bootstrap failed: {result.stderr}")
-            raise HTTPException(status_code=500, detail=f"Bootstrap failed: {result.stderr}")
+            logger.error(f"Bootstrap failed with return code {result.returncode}")
+            logger.error(f"Bootstrap stderr: {result.stderr}")
+            raise HTTPException(
+                status_code=500, 
+                detail={
+                    "error": "Bootstrap script failed",
+                    "return_code": result.returncode,
+                    "stderr": result.stderr[:1000],  # Limit error message length
+                    "stdout": result.stdout[:1000] if result.stdout else ""
+                }
+            )
         
         # Get updated stats
         db_stats = db_service.get_database_stats()
         
         logger.info("Knowledge base bootstrap completed successfully")
+        logger.info(f"Final stats: {db_stats}")
         
         return {
             "message": "Demo data loaded successfully",
             "status": "completed",
-            "stats": db_stats
+            "stats": db_stats,
+            "stdout": result.stdout[-500:] if result.stdout else "",  # Last 500 chars of output
         }
         
     except Exception as e:
