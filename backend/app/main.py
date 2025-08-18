@@ -32,7 +32,12 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Added Vite default port
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:5173",
+        "https://*.onrender.com",  # Allow all Render apps
+        "*"  # Allow all origins for deployment (remove for production)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
