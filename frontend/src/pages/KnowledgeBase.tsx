@@ -90,9 +90,7 @@ function KnowledgeBase() {
       if (title) formData.append('title', title)
       if (sourceUrl) formData.append('source_url', sourceUrl)
 
-      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
-      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
-      const response = await fetch(`${API_URL}/kb/upload`, {
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/upload`, {
         method: 'POST',
         body: formData
       })
@@ -125,9 +123,7 @@ function KnowledgeBase() {
   const loadStats = async () => {
     setLoadingStats(true)
     try {
-      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
-      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
-      const response = await fetch(`${API_URL}/kb/stats`)
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -143,9 +139,7 @@ function KnowledgeBase() {
     setBootstrapping(true)
     setError('')
     try {
-      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
-      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
-      const response = await fetch(`${API_URL}/kb/bootstrap`, {
+      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/bootstrap`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

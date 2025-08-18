@@ -9,18 +9,31 @@ logger = logging.getLogger(__name__)
 
 class DatabaseService:
     def __init__(self, db_path: str = None):
-        self.db_path = db_path or os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
+        if db_path:
+            self.db_path = db_path
+        else:
+            # Use /tmp for Render deployment (writable), fallback to local data dir
+            if os.environ.get('RENDER'):
+                self.db_path = "/tmp/kb.sqlite"
+            else:
+                self.db_path = os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
+        
         self._ensure_data_directory()
         self._init_database()
     
     def _ensure_data_directory(self):
         """Ensure the data directory exists"""
         data_dir = os.path.dirname(self.db_path)
-        os.makedirs(data_dir, exist_ok=True)
+        if data_dir:  # Only create if not root directory
+            os.makedirs(data_dir, exist_ok=True)
         
-        # Also ensure kb subdirectory for file storage
-        kb_dir = os.path.join(data_dir, "kb")
-        os.makedirs(kb_dir, exist_ok=True)
+        # For file storage, use /tmp/kb on Render
+        if os.environ.get('RENDER'):
+            self.kb_storage_dir = "/tmp/kb"
+        else:
+            self.kb_storage_dir = os.path.join(os.path.dirname(__file__), "..", "data", "kb")
+        
+        os.makedirs(self.kb_storage_dir, exist_ok=True)
     
     def _init_database(self):
         """Initialize the SQLite database with required tables"""

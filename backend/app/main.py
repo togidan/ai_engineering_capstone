@@ -35,7 +35,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost:5173",
-        "https://*.onrender.com",  # Allow all Render apps
+        "https://ai-engineering-capstone-1.onrender.com",  # Explicit frontend URL
         "*"  # Allow all origins for deployment (remove for production)
     ],
     allow_credentials=True,
