@@ -78,7 +78,7 @@ interface DraftResponse {
   kb_context_used?: boolean;
 }
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
 
 // Load actual economic development data
 async function loadEconomicData(): Promise<Record<string, any>> {
@@ -441,7 +441,7 @@ export default function Rfp() {
       setAnalysisResult(result);
     } catch (err) {
       console.error('Analysis failed:', err);
-      setError('Failed to analyze RFP. Make sure the backend is running on localhost:8000');
+      setError('Failed to analyze RFP. Please check your connection and try again.');
     } finally {
       setAnalyzing(false);
     }
@@ -462,7 +462,7 @@ export default function Rfp() {
       setDraftResult(result);
     } catch (err) {
       console.error('Draft generation failed:', err);
-      setError('Failed to generate draft. Make sure the backend is running on localhost:8000');
+      setError('Failed to generate draft. Please check your connection and try again.');
     } finally {
       setDrafting(false);
     }
