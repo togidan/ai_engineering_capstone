@@ -282,13 +282,9 @@ Training and Development Resources:
                     # Insert document into database
                     doc_id = db_service.insert_document(
                         path=f"/virtual/{city.lower()}_{content_type}",
-                        title=f"{city} {content_type.replace('_', ' ').title()}",
-                        jurisdiction=f"{city}, OH",
-                        industry="economic_development",
-                        doc_type=template_info["doc_type"],
-                        source_url=f"https://demo.example.com/{city.lower()}/{content_type}",
-                        keywords=auto_metadata["keywords"],
-                        summary=auto_metadata["summary"]
+                        name=f"{city} {content_type.replace('_', ' ').title()}",
+                        file_size=len(content.encode('utf-8')),
+                        description=auto_metadata["summary"]
                     )
                     
                     if doc_id:
