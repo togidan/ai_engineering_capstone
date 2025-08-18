@@ -1,0 +1,32 @@
+REQUEST FOR PROPOSAL
+Enterprise Software Implementation
+
+Project Overview:
+We are seeking a qualified vendor to implement a comprehensive enterprise software solution for our organization. The solution must integrate with our existing systems and support our growing workforce of 500 employees.
+
+Requirements:
+- Budget: $250,000 maximum
+- Timeline: Project must be completed within 6 months
+- Location: Primary facility in Columbus, OH
+- Technology: Must support cloud-based deployment
+- Integration: Must integrate with existing CRM and ERP systems
+- Security: Must meet SOC 2 compliance requirements
+- Support: 24/7 technical support required
+
+Technical Specifications:
+- Minimum 99.9% uptime SLA
+- Support for 1,000 concurrent users
+- Real-time data synchronization
+- Mobile application support
+- API access for third-party integrations
+
+Proposal Requirements:
+Vendors must provide detailed technical approach, implementation timeline, pricing structure, and team qualifications. References from similar implementations required.
+
+Evaluation Criteria:
+- Technical capability (40%)
+- Cost (25%)  
+- Timeline (20%)
+- Experience (15%)
+
+Submission deadline: 30 days from RFP release date.

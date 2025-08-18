@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+openai
+python-dotenv
+PyPDF2
+python-docx
+pdfplumber
+pymilvus>=2.3.0
+wikipedia-api
+wikipedia
+requests
+numpy
+slowapi

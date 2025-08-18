@@ -1,0 +1,143 @@
+[
+  {
+    "id": "manufacturing",
+    "name": "Manufacturing",
+    "description": "Traditional manufacturing and industrial production",
+    "weights": {
+      "manufacturing_emp_share": 0.25,
+      "industrial_power_cents_kwh": 0.2,
+      "logistics_index": 0.15,
+      "median_income": 0.1,
+      "pop": 0.1,
+      "stem_share": 0.1,
+      "median_rent": 0.1
+    },
+    "thresholds": {
+      "manufacturing_emp_share": 0.08,
+      "industrial_power_cents_kwh": 8.5,
+      "logistics_index": 0.55
+    },
+    "prescriptions": {
+      "strengths": ["Strong manufacturing workforce", "Competitive industrial power costs", "Excellent logistics infrastructure"],
+      "opportunities": ["Workforce development programs", "Supply chain optimization", "Automation adoption"],
+      "concerns": ["Rising energy costs", "Skills gap in advanced manufacturing", "Infrastructure maintenance"]
+    }
+  },
+  {
+    "id": "technology",
+    "name": "Technology",
+    "description": "Software, hardware, and tech services",
+    "weights": {
+      "stem_share": 0.25,
+      "median_income": 0.2,
+      "broadband_100_20_pct": 0.15,
+      "university_research_usd_m": 0.15,
+      "pop": 0.1,
+      "median_rent": 0.15
+    },
+    "thresholds": {
+      "stem_share": 0.15,
+      "broadband_100_20_pct": 0.85,
+      "university_research_usd_m": 500000000
+    },
+    "prescriptions": {
+      "strengths": ["High STEM talent concentration", "Strong broadband infrastructure", "Active university research"],
+      "opportunities": ["Tech incubators and accelerators", "Public-private partnerships", "Talent retention programs"],
+      "concerns": ["High cost of living", "Housing affordability", "Competition for talent"]
+    }
+  },
+  {
+    "id": "healthcare",
+    "name": "Healthcare & Life Sciences",
+    "description": "Healthcare services, medical devices, pharmaceuticals",
+    "weights": {
+      "university_research_usd_m": 0.2,
+      "stem_share": 0.2,
+      "pop": 0.15,
+      "median_income": 0.15,
+      "broadband_100_20_pct": 0.1,
+      "median_rent": 0.1,
+      "logistics_index": 0.1
+    },
+    "thresholds": {
+      "university_research_usd_m": 600000000,
+      "stem_share": 0.14,
+      "pop": 1500000
+    },
+    "prescriptions": {
+      "strengths": ["Research university presence", "Healthcare workforce", "Population density for services"],
+      "opportunities": ["Medical research partnerships", "Healthcare innovation hubs", "Telemedicine infrastructure"],
+      "concerns": ["Regulatory compliance costs", "Talent acquisition", "Research funding"]
+    }
+  },
+  {
+    "id": "logistics",
+    "name": "Logistics & Distribution",
+    "description": "Warehousing, distribution, transportation",
+    "weights": {
+      "logistics_index": 0.3,
+      "industrial_power_cents_kwh": 0.15,
+      "pop": 0.15,
+      "manufacturing_emp_share": 0.1,
+      "median_rent": 0.15,
+      "broadband_100_20_pct": 0.15
+    },
+    "thresholds": {
+      "logistics_index": 0.58,
+      "industrial_power_cents_kwh": 8.0,
+      "pop": 2000000
+    },
+    "prescriptions": {
+      "strengths": ["Central location for distribution", "Competitive operating costs", "Transportation infrastructure"],
+      "opportunities": ["Automated warehousing", "Last-mile delivery optimization", "Multimodal transportation"],
+      "concerns": ["Labor shortages", "Infrastructure capacity", "Fuel cost volatility"]
+    }
+  },
+  {
+    "id": "finance",
+    "name": "Financial Services",
+    "description": "Banking, insurance, fintech, investment services",
+    "weights": {
+      "median_income": 0.25,
+      "stem_share": 0.15,
+      "broadband_100_20_pct": 0.15,
+      "pop": 0.15,
+      "university_research_usd_m": 0.1,
+      "median_rent": 0.2
+    },
+    "thresholds": {
+      "median_income": 75000,
+      "broadband_100_20_pct": 0.85,
+      "pop": 1800000
+    },
+    "prescriptions": {
+      "strengths": ["High-income demographics", "Digital infrastructure", "Educated workforce"],
+      "opportunities": ["Fintech innovation", "Digital banking services", "Regulatory sandboxes"],
+      "concerns": ["Regulatory compliance", "Cybersecurity", "Competition from established centers"]
+    }
+  },
+  {
+    "id": "energy",
+    "name": "Energy & Utilities",
+    "description": "Renewable energy, oil & gas, utilities, clean tech",
+    "weights": {
+      "industrial_power_cents_kwh": 0.25,
+      "stem_share": 0.15,
+      "university_research_usd_m": 0.15,
+      "manufacturing_emp_share": 0.1,
+      "logistics_index": 0.1,
+      "median_income": 0.1,
+      "pop": 0.15
+    },
+    "thresholds": {
+      "industrial_power_cents_kwh": 9.0,
+      "stem_share": 0.13,
+      "university_research_usd_m": 400000000
+    },
+    "prescriptions": {
+      "strengths": ["Competitive energy costs", "Engineering talent", "Research capabilities"],
+      "opportunities": ["Clean energy transition", "Smart grid technology", "Energy storage solutions"],
+      "concerns": ["Regulatory changes", "Infrastructure investment", "Environmental compliance"]
+    }
+  }
+]

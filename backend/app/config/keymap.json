@@ -1,0 +1,60 @@
+{
+  "patterns": {
+    "budget": "budget.*?(\\$[\\d,]+(?:\\.\\d+)?[kmb]?)",
+    "timeline": "(?:deadline|timeline|due).*?(\\d+\\s+(?:days?|weeks?|months?))",
+    "location": "(?:location|site|facility).*?([A-Z][a-z]+,?\\s*[A-Z]{2})",
+    "employees": "(?:employees?|staff|workforce).*?(\\d+)",
+    "square_feet": "(\\d+(?:,\\d+)?)\\s*(?:sq\\.?\\s*ft\\.?|square\\s+feet)",
+    "technology": "(?:technology|software|system|platform)\\s+(\\w+)",
+    "security": "(?:security|compliance|certification)\\s+(\\w+)",
+    "integration": "(?:integrate|compatibility|API)\\s+with\\s+(\\w+)"
+  },
+  "requirements": {
+    "technical": {
+      "keywords": ["technology", "system", "software", "hardware", "network", "database", "API", "integration"],
+      "priority": "High"
+    },
+    "operational": {
+      "keywords": ["process", "workflow", "procedure", "operation", "maintenance", "support"],
+      "priority": "Medium"
+    },
+    "financial": {
+      "keywords": ["budget", "cost", "price", "payment", "funding", "ROI"],
+      "priority": "High"
+    },
+    "timeline": {
+      "keywords": ["deadline", "schedule", "timeline", "duration", "milestone"],
+      "priority": "High"
+    },
+    "compliance": {
+      "keywords": ["compliance", "regulation", "standard", "certification", "audit"],
+      "priority": "High"
+    },
+    "security": {
+      "keywords": ["security", "encryption", "authentication", "authorization", "privacy"],
+      "priority": "Critical"
+    }
+  },
+  "features": {
+    "budget": {
+      "datatype": "currency",
+      "unit": "USD"
+    },
+    "timeline": {
+      "datatype": "duration",
+      "unit": "days"
+    },
+    "location": {
+      "datatype": "text",
+      "unit": null
+    },
+    "employees": {
+      "datatype": "integer",
+      "unit": "count"
+    },
+    "square_feet": {
+      "datatype": "integer",
+      "unit": "sq_ft"
+    }
+  }
+}
