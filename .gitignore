@@ -156,7 +156,7 @@ docker-compose.override.yml
 
 # Local development
 .local/
-ai_agents_github.md
+ai_agents_github_issues.md
 CLAUDE.md
 github_issues.md
 PROJECT_OVERVIEW.md
