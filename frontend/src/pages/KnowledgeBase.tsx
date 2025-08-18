@@ -58,6 +58,7 @@ function KnowledgeBase() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState<KBStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
+  const [bootstrapping, setBootstrapping] = useState(false)
   
   // File selection state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -89,7 +90,9 @@ function KnowledgeBase() {
       if (title) formData.append('title', title)
       if (sourceUrl) formData.append('source_url', sourceUrl)
 
-      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/upload`, {
+      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
+      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
+      const response = await fetch(`${API_URL}/kb/upload`, {
         method: 'POST',
         body: formData
       })
@@ -122,7 +125,9 @@ function KnowledgeBase() {
   const loadStats = async () => {
     setLoadingStats(true)
     try {
-      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
+      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
+      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
+      const response = await fetch(`${API_URL}/kb/stats`)
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -131,6 +136,36 @@ function KnowledgeBase() {
       console.error('Failed to load stats:', err)
     } finally {
       setLoadingStats(false)
+    }
+  }
+
+  const bootstrapData = async () => {
+    setBootstrapping(true)
+    setError('')
+    try {
+      // const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'; // Local development
+      const API_URL = 'https://ai-engineering-capstone.onrender.com'; // Production
+      const response = await fetch(`${API_URL}/kb/bootstrap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        // Reload stats to show the new data
+        await loadStats()
+        setError('')
+      } else {
+        const errorData = await response.json()
+        setError(errorData.detail || 'Failed to load demo data')
+      }
+    } catch (err) {
+      console.error('Failed to bootstrap data:', err)
+      setError('Failed to load demo data. Please check if the backend is running.')
+    } finally {
+      setBootstrapping(false)
     }
   }
 
@@ -284,9 +319,19 @@ function KnowledgeBase() {
             <VStack spacing={4} align="stretch">
               <HStack justify="space-between">
                 <Heading size="md">Knowledge Base Statistics</Heading>
-                <Button onClick={loadStats} isLoading={loadingStats} size="sm">
-                  Refresh
-                </Button>
+                <HStack spacing={2}>
+                  <Button 
+                    onClick={bootstrapData} 
+                    isLoading={bootstrapping} 
+                    size="sm"
+                    colorScheme="blue"
+                  >
+                    Load Demo Data
+                  </Button>
+                  <Button onClick={loadStats} isLoading={loadingStats} size="sm">
+                    Refresh
+                  </Button>
+                </HStack>
               </HStack>
 
               {stats && (

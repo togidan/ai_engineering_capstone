@@ -4,7 +4,7 @@ services:
     name: capstone-backend
     runtime: python
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     plan: free
     healthCheckPath: /docs
     envVars:
@@ -25,8 +25,8 @@ services:
   - type: web
     name: capstone-frontend
     runtime: static
-    buildCommand: "cd frontend && npm ci && npm run build"
-    staticPublishPath: "./frontend/dist"
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: "frontend/dist"
     plan: free
     routes:
       - type: rewrite
@@ -37,4 +37,4 @@ services:
         fromService:
           type: web
           name: capstone-backend
-          property: host
+          property: url

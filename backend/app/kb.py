@@ -357,6 +357,49 @@ async def get_knowledge_base_stats():
         }
     }
 
+@router.post("/bootstrap")
+@limiter.limit("1/minute")
+async def bootstrap_demo_data(request: Request):
+    """Bootstrap knowledge base with demo data"""
+    try:
+        logger.info("Starting knowledge base bootstrap...")
+        
+        # Run the simple demo ingest
+        import sys
+        import subprocess
+        from pathlib import Path
+        
+        # Get the scripts directory
+        backend_dir = Path(__file__).parent.parent
+        script_path = backend_dir / "scripts" / "simple_demo_ingest.py"
+        
+        if not script_path.exists():
+            raise HTTPException(status_code=404, detail="Bootstrap script not found")
+        
+        # Run the script
+        result = subprocess.run([
+            sys.executable, str(script_path)
+        ], capture_output=True, text=True, cwd=str(backend_dir))
+        
+        if result.returncode != 0:
+            logger.error(f"Bootstrap failed: {result.stderr}")
+            raise HTTPException(status_code=500, detail=f"Bootstrap failed: {result.stderr}")
+        
+        # Get updated stats
+        db_stats = db_service.get_database_stats()
+        
+        logger.info("Knowledge base bootstrap completed successfully")
+        
+        return {
+            "message": "Demo data loaded successfully",
+            "status": "completed",
+            "stats": db_stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Bootstrap error: {e}")
+        raise HTTPException(status_code=500, detail=f"Bootstrap failed: {str(e)}")
+
 # Agent-specific endpoints
 @router.get("/agent/document/{doc_id}")
 async def agent_read_document(doc_id: int):
