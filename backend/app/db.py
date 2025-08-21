@@ -27,15 +27,23 @@ class DatabaseService:
         logger.info(f"POSTGRES_AVAILABLE: {POSTGRES_AVAILABLE}")
         logger.info(f"Using PostgreSQL: {self.use_postgres}")
         
-        # Test connection
+        # Test connection with SSL for Supabase
         if self.postgres_url and POSTGRES_AVAILABLE:
             try:
                 import psycopg2
-                test_conn = psycopg2.connect(self.postgres_url)
+                # Add SSL mode for Supabase
+                ssl_url = self.postgres_url
+                if '?sslmode=' not in ssl_url:
+                    ssl_url += '?sslmode=require'
+                test_conn = psycopg2.connect(ssl_url)
                 test_conn.close()
                 logger.info("✅ PostgreSQL connection test successful")
+                # Update the URL to include SSL
+                self.postgres_url = ssl_url
             except Exception as e:
                 logger.error(f"❌ PostgreSQL connection test failed: {e}")
+                logger.error(f"Connection string length: {len(self.postgres_url)}")
+                logger.error(f"URL starts with postgresql: {self.postgres_url.startswith('postgresql://')}")
                 self.use_postgres = False
         
         if not self.use_postgres:
