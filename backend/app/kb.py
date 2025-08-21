@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Request
+from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Request, BackgroundTasks
 from fastapi.responses import FileResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -359,12 +359,29 @@ async def get_knowledge_base_stats():
 
 @router.post("/bootstrap")
 @limiter.limit("1/minute")
-async def bootstrap_demo_data(request: Request):
+async def bootstrap_demo_data(request: Request, background_tasks: BackgroundTasks):
     """Bootstrap knowledge base with demo data"""
     try:
         logger.info("Starting knowledge base bootstrap...")
         
-        # Run the simple demo ingest
+        # Run bootstrap in background
+        background_tasks.add_task(run_bootstrap_task)
+        
+        return {
+            "message": "Demo data loading started in background",
+            "status": "started", 
+            "note": "This will take 10-15 minutes. Check /kb/stats for progress."
+        }
+        
+    except Exception as e:
+        logger.error(f"Bootstrap error: {e}")
+        raise HTTPException(status_code=500, detail=f"Bootstrap failed: {str(e)}")
+
+def run_bootstrap_task():
+    """Background task to run the bootstrap script"""
+    try:
+        logger.info("🚀 Background bootstrap task started...")
+        
         import sys
         import subprocess
         from pathlib import Path
@@ -374,46 +391,21 @@ async def bootstrap_demo_data(request: Request):
         script_path = backend_dir / "scripts" / "simple_demo_ingest.py"
         
         if not script_path.exists():
-            raise HTTPException(status_code=404, detail="Bootstrap script not found")
+            logger.error("Bootstrap script not found")
+            return
         
         # Run the script
         result = subprocess.run([
             sys.executable, str(script_path)
-        ], capture_output=True, text=True, cwd=str(backend_dir), timeout=300)  # 5 minute timeout
+        ], capture_output=True, text=True, cwd=str(backend_dir), timeout=900)
         
-        logger.info(f"Bootstrap script stdout: {result.stdout}")
-        if result.stderr:
-            logger.warning(f"Bootstrap script stderr: {result.stderr}")
-        
-        if result.returncode != 0:
-            logger.error(f"Bootstrap failed with return code {result.returncode}")
-            logger.error(f"Bootstrap stderr: {result.stderr}")
-            raise HTTPException(
-                status_code=500, 
-                detail={
-                    "error": "Bootstrap script failed",
-                    "return_code": result.returncode,
-                    "stderr": result.stderr[:1000],  # Limit error message length
-                    "stdout": result.stdout[:1000] if result.stdout else ""
-                }
-            )
-        
-        # Get updated stats
-        db_stats = db_service.get_database_stats()
-        
-        logger.info("Knowledge base bootstrap completed successfully")
-        logger.info(f"Final stats: {db_stats}")
-        
-        return {
-            "message": "Demo data loaded successfully",
-            "status": "completed",
-            "stats": db_stats,
-            "stdout": result.stdout[-500:] if result.stdout else "",  # Last 500 chars of output
-        }
-        
+        if result.returncode == 0:
+            logger.info("✅ Background bootstrap completed successfully!")
+        else:
+            logger.error(f"❌ Background bootstrap failed: {result.stderr}")
+            
     except Exception as e:
-        logger.error(f"Bootstrap error: {e}")
-        raise HTTPException(status_code=500, detail=f"Bootstrap failed: {str(e)}")
+        logger.error(f"Background bootstrap error: {e}")
 
 # Agent-specific endpoints
 @router.get("/agent/document/{doc_id}")
