@@ -1,3 +1,7 @@
+# Load environment variables FIRST - before any app imports
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -5,13 +9,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
 import os
-from dotenv import load_dotenv
 from app.rfi import router as rfi_router
 from app.kb import router as kb_router
 from app.rag import router as rag_router
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
