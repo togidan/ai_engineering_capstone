@@ -349,9 +349,34 @@ async def get_knowledge_base_stats():
         if len(url_parts) > 1:
             logger.info(f"Stats endpoint: PostgreSQL host: {url_parts[1].split('?')[0]}")
     
+    # Test database connection explicitly
+    try:
+        with db_service._get_connection() as conn:
+            if db_service.use_postgres:
+                cursor = conn.cursor()
+                cursor.execute("SELECT current_database();")
+                db_name = cursor.fetchone()[0]
+                logger.info(f"Stats endpoint: Connected to PostgreSQL database: {db_name}")
+            else:
+                logger.info(f"Stats endpoint: Connected to SQLite database: {db_service.db_path}")
+    except Exception as e:
+        logger.error(f"Stats endpoint: Database connection test failed: {e}")
+        return {
+            "database": {"error": f"Database connection failed: {str(e)}"},
+            "milvus": {"error": "Database unavailable"},
+            "services": {
+                "milvus_available": False,
+                "embeddings_available": False
+            }
+        }
+    
     # Get database stats
     db_stats = db_service.get_database_stats()
     logger.info(f"Stats endpoint: Database stats: {db_stats}")
+    
+    # Check if we got an error in stats
+    if "error" in db_stats:
+        logger.error(f"Stats endpoint: Database stats error: {db_stats['error']}")
     
     # Get Milvus stats
     milvus_stats = milvus_service.get_collection_stats() if milvus_service.is_available() else {"error": "Milvus not available"}
