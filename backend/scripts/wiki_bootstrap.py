@@ -15,6 +15,10 @@ from pathlib import Path
 # Add the parent directory to the path so we can import from app
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
 try:
     import wikipedia
 except ImportError:
@@ -43,8 +47,8 @@ CITIES = [
     "San Diego, California", "San Jose, California"
 ]
 
-# API endpoint
-API_BASE = "http://localhost:8000"
+# API endpoint - use environment variable or default to localhost
+API_BASE = os.environ.get('API_URL', 'http://localhost:8000')
 
 class WikiBootstrapper:
     def __init__(self):

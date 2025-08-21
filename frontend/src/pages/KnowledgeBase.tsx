@@ -222,7 +222,7 @@ function KnowledgeBase() {
       <Tabs>
         <TabList>
           <Tab>Upload Document</Tab>
-          <Tab>Statistics</Tab>
+          <Tab>Check Knowledge Base</Tab>
         </TabList>
 
         <TabPanels>
