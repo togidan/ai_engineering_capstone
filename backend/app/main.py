@@ -10,6 +10,10 @@ from app.rfi import router as rfi_router
 from app.kb import router as kb_router
 from app.rag import router as rag_router
 
+# Force database initialization at startup
+from app.db import db_service
+logger.info(f"Database service initialized: {type(db_service).__name__}")
+
 # Load environment variables
 load_dotenv()
 
