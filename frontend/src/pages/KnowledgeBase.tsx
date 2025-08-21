@@ -59,6 +59,8 @@ function KnowledgeBase() {
   const [stats, setStats] = useState<KBStats | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [bootstrapping, setBootstrapping] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [progressStats, setProgressStats] = useState<{documents: number, chunks: number} | null>(null)
   
   // File selection state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -149,9 +151,12 @@ function KnowledgeBase() {
       if (response.ok) {
         const data = await response.json()
         console.log('Bootstrap response:', data)
-        // Reload stats to show the new data
-        await loadStats()
         setError('')
+        
+        // Start polling for progress
+        setIsProcessing(true)
+        setProgressStats({documents: 0, chunks: 0})
+        startProgressPolling()
       } else {
         const errorData = await response.json()
         console.error('Bootstrap error:', errorData)
@@ -166,6 +171,38 @@ function KnowledgeBase() {
     } finally {
       setBootstrapping(false)
     }
+  }
+
+  const startProgressPolling = () => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
+        if (response.ok) {
+          const data = await response.json()
+          const newStats = {
+            documents: data.database?.documents || 0,
+            chunks: data.database?.chunks || 0
+          }
+          
+          setProgressStats(newStats)
+          setStats(data)
+          
+          // Stop polling when we have substantial data (estimated complete)
+          if (newStats.documents >= 110 && newStats.chunks >= 1000) { // 22 cities × 5 doc types = 110 docs
+            setIsProcessing(false)
+            clearInterval(pollInterval)
+          }
+        }
+      } catch (err) {
+        console.error('Progress polling error:', err)
+      }
+    }, 3000) // Poll every 3 seconds
+
+    // Auto-stop after 20 minutes max
+    setTimeout(() => {
+      setIsProcessing(false)
+      clearInterval(pollInterval)
+    }, 20 * 60 * 1000)
   }
 
   // Load stats on mount
@@ -332,6 +369,51 @@ function KnowledgeBase() {
                   </Button>
                 </HStack>
               </HStack>
+
+              {isProcessing && (
+                <Card>
+                  <CardBody>
+                    <VStack spacing={3} align="stretch">
+                      <HStack justify="space-between">
+                        <Heading size="sm">🔄 Processing Demo Data...</Heading>
+                        <Spinner size="sm" />
+                      </HStack>
+                      
+                      {progressStats && (
+                        <VStack spacing={2} align="stretch">
+                          <HStack justify="space-between">
+                            <Text fontSize="sm">Documents processed:</Text>
+                            <Text fontSize="sm" fontWeight="bold">{progressStats.documents} / ~110</Text>
+                          </HStack>
+                          <Progress 
+                            value={(progressStats.documents / 110) * 100} 
+                            colorScheme="blue" 
+                            size="sm"
+                            hasStripe
+                            isAnimated
+                          />
+                          
+                          <HStack justify="space-between">
+                            <Text fontSize="sm">Chunks generated:</Text>
+                            <Text fontSize="sm" fontWeight="bold">{progressStats.chunks} / ~1000+</Text>
+                          </HStack>
+                          <Progress 
+                            value={Math.min((progressStats.chunks / 1000) * 100, 100)} 
+                            colorScheme="green" 
+                            size="sm"
+                            hasStripe
+                            isAnimated
+                          />
+                          
+                          <Text fontSize="xs" color="gray.500" textAlign="center">
+                            This process takes 10-15 minutes. You can navigate away and come back.
+                          </Text>
+                        </VStack>
+                      )}
+                    </VStack>
+                  </CardBody>
+                </Card>
+              )}
 
               {stats && (
                 <VStack spacing={4} align="stretch">
