@@ -147,7 +147,7 @@ class DatabaseService:
                             doc_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
                             ord INTEGER NOT NULL,
                             text TEXT NOT NULL,
-                            milvus_pk INTEGER UNIQUE,
+                            milvus_pk BIGINT UNIQUE,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         )
                     """)
@@ -156,6 +156,21 @@ class DatabaseService:
                     cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_name ON documents(name)")
                     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
                     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_milvus_pk ON chunks(milvus_pk)")
+                    
+                    # Ensure milvus_pk is BIGINT (auto-migration)
+                    try:
+                        cursor.execute("""
+                            SELECT data_type 
+                            FROM information_schema.columns 
+                            WHERE table_name='chunks' AND column_name='milvus_pk'
+                        """)
+                        row = cursor.fetchone()
+                        if row and row[0].lower() != 'bigint':
+                            logger.info("Altering chunks.milvus_pk type to BIGINT for Postgres...")
+                            cursor.execute("ALTER TABLE chunks ALTER COLUMN milvus_pk TYPE BIGINT")
+                            conn.commit()
+                    except Exception as e:
+                        logger.warning(f"Could not ensure BIGINT type for milvus_pk: {e}")
                     
                     conn.commit()
                     logger.info(f"PostgreSQL database initialized")

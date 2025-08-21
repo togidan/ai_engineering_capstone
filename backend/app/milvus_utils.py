@@ -86,12 +86,20 @@ class MilvusService:
                 )
                 logger.error(msg)
                 raise RuntimeError(msg)
-            # Optional: validate embedding dim
-            for f in self.collection.schema.fields:
-                if f.name == "embedding" and getattr(f.params, 'dim', None) not in (None, self.embedding_dim):
-                    logger.warning(
-                        f"Embedding dim mismatch (collection={getattr(f.params, 'dim', None)}, expected={self.embedding_dim})."
+            # Validate primary key is not auto_id (we provide our own chunk IDs)
+            try:
+                pk_field = next((f for f in self.collection.schema.fields if f.name == "primary_key"), None)
+                if pk_field is None:
+                    raise RuntimeError("Milvus schema missing 'primary_key' field")
+                # Some versions use attribute 'auto_id'
+                auto_id = getattr(pk_field, 'auto_id', None)
+                if auto_id is True:
+                    raise RuntimeError(
+                        "Milvus collection uses auto_id for primary_key; reset the collection to use explicit IDs."
                     )
+            except Exception as e:
+                logger.error(f"ensure_collection primary key validation failed: {e}")
+                raise
             return True
         except Exception as e:
             logger.error(f"ensure_collection failed: {e}")
@@ -102,7 +110,7 @@ class MilvusService:
         try:
             # Define schema
             fields = [
-                FieldSchema(name="primary_key", dtype=DataType.INT64, is_primary=True, auto_id=True),
+                FieldSchema(name="primary_key", dtype=DataType.INT64, is_primary=True, auto_id=False),
                 FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=self.embedding_dim),
                 # FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=8192),
                 FieldSchema(name="jurisdiction", dtype=DataType.VARCHAR, max_length=128),
@@ -133,7 +141,7 @@ class MilvusService:
                 index_params=index_params
             )
             
-            logger.info(f"Created collection {self.collection_name} with HNSW index")
+            logger.info(f"Created collection {self.collection_name} with HNSW index (explicit primary keys)")
             return True
             
         except Exception as e:
@@ -161,7 +169,7 @@ class MilvusService:
             return None
     
     def insert_chunks(self, chunks_data: List[Dict[str, Any]]) -> List[int]:
-        """Insert chunk data with embeddings into Milvus. Returns list of Milvus primary keys (empty list on failure)."""
+        """Insert chunk data with embeddings into Milvus using explicit primary keys from chunks_data."""
         if not self.ensure_collection():
             logger.error("Milvus collection not ready")
             return []
@@ -175,28 +183,28 @@ class MilvusService:
                 logger.error("Failed to generate embeddings for chunks")
                 return []
             
-            # Debug: Check embedding format
-            logger.info(f"Embeddings type: {type(embeddings)}")
-            if embeddings:
-                logger.info(f"First embedding type: {type(embeddings[0])}")
-                logger.info(f"First embedding length: {len(embeddings[0]) if hasattr(embeddings[0], '__len__') else 'N/A'}")
+            # Collect explicit primary keys
+            try:
+                primary_keys = [int(chunk["primary_key"]) for chunk in chunks_data]
+            except Exception:
+                raise RuntimeError("chunks_data must include 'primary_key' for explicit ID insertion")
             
-            # Prepare data for insertion - Milvus expects column format in field order
-            # Field order: primary_key (auto), embedding, text, jurisdiction, industry, doc_type
+            # Prepare data for insertion - match schema order
             data = [
-                embeddings,  # embedding field
-                # [chunk.get("text", "") for chunk in chunks_data],  # text field
-                [chunk.get("jurisdiction", "None") for chunk in chunks_data],  # jurisdiction field
-                [chunk.get("industry", "None") for chunk in chunks_data],  # industry field
-                [chunk.get("doc_type", "None") for chunk in chunks_data],  # doc_type field
+                primary_keys,                        # primary_key field
+                embeddings,                          # embedding field
+                [chunk.get("jurisdiction", "None") for chunk in chunks_data],
+                [chunk.get("industry", "None") for chunk in chunks_data],
+                [chunk.get("doc_type", "None") for chunk in chunks_data],
             ]
             
             # Insert data
             mr = self.collection.insert(data)
             self.collection.flush()
             
-            pks = [int(pk) for pk in mr.primary_keys] if hasattr(mr, "primary_keys") else []
-            logger.info(f"Inserted {len(chunks_data)} chunks into Milvus (pks={len(pks)})")
+            # With explicit IDs, Milvus may not echo primary_keys in response; return our list
+            pks = primary_keys
+            logger.info(f"Inserted {len(chunks_data)} chunks into Milvus with explicit IDs")
             return pks
             
         except Exception as e:
@@ -291,6 +299,18 @@ class MilvusService:
                 logger.info("Collection loaded into memory")
             except Exception as e:
                 logger.error(f"Failed to load collection: {e}")
+
+    def reset_collection(self) -> bool:
+        """Drop and recreate the collection with explicit primary keys (no auto_id)."""
+        try:
+            if utility.has_collection(self.collection_name):
+                utility.drop_collection(self.collection_name)
+                logger.info(f"Dropped existing collection {self.collection_name}")
+            self.collection = None
+            return self.create_collection()
+        except Exception as e:
+            logger.error(f"Failed to reset collection: {e}")
+            return False
 
 # Global Milvus service instance
 milvus_service = MilvusService()
