@@ -13,3 +13,4 @@ wikipedia
 requests
 numpy
 slowapi
+psycopg2-binary

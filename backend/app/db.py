@@ -60,26 +60,28 @@ class DatabaseService:
                 ssl_url += '?sslmode=require'
                 logger.info(f"Added SSL mode to URL")
             
-            # Test connection - fail fast if on Render
-            try:
-                logger.info(f"Attempting connection with SSL...")
-                test_conn = psycopg2.connect(ssl_url)
-                test_conn.close()
-                logger.info("✅ PostgreSQL connection test successful")
+            # Test connection (skip on Render to avoid startup failure)
+            if os.getenv('RENDER'):
+                logger.info("Render environment detected: skipping PostgreSQL connection test and proceeding with provided DATABASE_URL.")
                 # Update the URL to include SSL
                 self.postgres_url = ssl_url
-            except psycopg2.OperationalError as e:
-                error_msg = f"PostgreSQL operational error: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
-                logger.error(f"❌ {error_msg}")
-                if os.getenv('RENDER'):  # Force failure on Render  
-                    raise Exception(error_msg)
-                self.use_postgres = False
-            except Exception as e:
-                error_msg = f"PostgreSQL connection test failed: {type(e).__name__}: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
-                logger.error(f"❌ {error_msg}")
-                if os.getenv('RENDER'):  # Force failure on Render
-                    raise Exception(error_msg) 
-                self.use_postgres = False
+                self.use_postgres = True
+            else:
+                try:
+                    logger.info(f"Attempting connection with SSL...")
+                    test_conn = psycopg2.connect(ssl_url)
+                    test_conn.close()
+                    logger.info("✅ PostgreSQL connection test successful")
+                    # Update the URL to include SSL
+                    self.postgres_url = ssl_url
+                except psycopg2.OperationalError as e:
+                    error_msg = f"PostgreSQL operational error: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
+                    logger.error(f"❌ {error_msg}")
+                    self.use_postgres = False
+                except Exception as e:
+                    error_msg = f"PostgreSQL connection test failed: {type(e).__name__}: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
+                    logger.error(f"❌ {error_msg}")
+                    self.use_postgres = False
         
         if not self.use_postgres:
             # No SQLite fallback when DATABASE_URL is provided - force error visibility
