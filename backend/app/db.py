@@ -21,9 +21,22 @@ class DatabaseService:
         self.postgres_url = os.environ.get('DATABASE_URL')
         self.use_postgres = bool(self.postgres_url and POSTGRES_AVAILABLE)
         
-        logger.info(f"Database initialization: postgres_url={'[REDACTED]' if self.postgres_url else 'None'}")
+        logger.info(f"DATABASE_URL from env: {'[REDACTED]' if self.postgres_url else 'None'}")
+        logger.info(f"DATABASE_URL length: {len(self.postgres_url) if self.postgres_url else 0}")
+        logger.info(f"DATABASE_URL starts with postgresql: {self.postgres_url.startswith('postgresql://') if self.postgres_url else False}")
+        logger.info(f"POSTGRES_AVAILABLE: {POSTGRES_AVAILABLE}")
         logger.info(f"Using PostgreSQL: {self.use_postgres}")
-        logger.info(f"PostgreSQL available: {POSTGRES_AVAILABLE}")
+        
+        # Test connection
+        if self.postgres_url and POSTGRES_AVAILABLE:
+            try:
+                import psycopg2
+                test_conn = psycopg2.connect(self.postgres_url)
+                test_conn.close()
+                logger.info("✅ PostgreSQL connection test successful")
+            except Exception as e:
+                logger.error(f"❌ PostgreSQL connection test failed: {e}")
+                self.use_postgres = False
         
         if not self.use_postgres:
             # SQLite fallback
