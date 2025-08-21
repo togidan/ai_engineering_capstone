@@ -60,6 +60,10 @@ async def root():
     return {
         "message": "City Opportunity RAG MVP API", 
         "version": "2.0.0",
+        "database_info": {
+            "type": "PostgreSQL" if db_service.use_postgres else "SQLite",
+            "url_provided": bool(db_service.postgres_url) if hasattr(db_service, 'postgres_url') else False
+        },
         "services": {
             "llm_available": llm_service.is_available(),
             "milvus_available": milvus_service.is_available(),

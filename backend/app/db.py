@@ -21,6 +21,10 @@ class DatabaseService:
         self.postgres_url = os.environ.get('DATABASE_URL')
         self.use_postgres = bool(self.postgres_url and POSTGRES_AVAILABLE)
         
+        logger.info(f"Database initialization: postgres_url={'[REDACTED]' if self.postgres_url else 'None'}")
+        logger.info(f"Using PostgreSQL: {self.use_postgres}")
+        logger.info(f"PostgreSQL available: {POSTGRES_AVAILABLE}")
+        
         if not self.use_postgres:
             # SQLite fallback
             if db_path:
@@ -44,9 +48,11 @@ class DatabaseService:
     
     def _ensure_data_directory(self):
         """Ensure the data directory exists"""
-        data_dir = os.path.dirname(self.db_path)
-        if data_dir:  # Only create if not root directory
-            os.makedirs(data_dir, exist_ok=True)
+        if not self.use_postgres:
+            # Only create directories for SQLite
+            data_dir = os.path.dirname(self.db_path) if hasattr(self, 'db_path') else None
+            if data_dir:  # Only create if not root directory
+                os.makedirs(data_dir, exist_ok=True)
         
         # For file storage, use /tmp/kb on Render
         if os.environ.get('RENDER'):
