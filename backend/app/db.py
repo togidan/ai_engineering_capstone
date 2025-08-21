@@ -17,60 +17,80 @@ logger = logging.getLogger(__name__)
 
 class DatabaseService:
     def __init__(self, db_path: str = None):
-        # Check if PostgreSQL URL is provided
-        self.postgres_url = os.environ.get('DATABASE_URL')
+        # Check if PostgreSQL URL is provided - use os.getenv for cloud platforms
+        self.postgres_url = os.getenv('DATABASE_URL')
         self.use_postgres = bool(self.postgres_url and POSTGRES_AVAILABLE)
         
+        # Detailed environment debugging
         logger.info(f"DATABASE_URL from env: {'[REDACTED]' if self.postgres_url else 'None'}")
         logger.info(f"DATABASE_URL length: {len(self.postgres_url) if self.postgres_url else 0}")
         logger.info(f"DATABASE_URL starts with postgresql: {self.postgres_url.startswith('postgresql://') if self.postgres_url else False}")
+        logger.info(f"RENDER environment: {bool(os.getenv('RENDER'))}")
         logger.info(f"POSTGRES_AVAILABLE: {POSTGRES_AVAILABLE}")
-        logger.info(f"Using PostgreSQL: {self.use_postgres}")
+        logger.info(f"Initial use_postgres decision: {self.use_postgres}")
         
-        # Test connection with SSL for Supabase
+        # Debug environment variable access methods
+        database_url_environ = os.environ.get('DATABASE_URL')
+        database_url_getenv = os.getenv('DATABASE_URL') 
+        logger.info(f"DATABASE_URL via os.environ.get(): {'[REDACTED]' if database_url_environ else 'None'}")
+        logger.info(f"DATABASE_URL via os.getenv(): {'[REDACTED]' if database_url_getenv else 'None'}")
+        logger.info(f"URLs match: {database_url_environ == database_url_getenv}")
+        
+        # Test connection with SSL for Supabase - FAIL FAST if DATABASE_URL provided
         if self.postgres_url and POSTGRES_AVAILABLE:
+            logger.info(f"Testing PostgreSQL connection...")
+            logger.info(f"POSTGRES_AVAILABLE: {POSTGRES_AVAILABLE}")
+            logger.info(f"Original URL length: {len(self.postgres_url)}")
+            
+            # Check psycopg2 availability first
             try:
                 import psycopg2
-                logger.info(f"Testing PostgreSQL connection...")
-                logger.info(f"POSTGRES_AVAILABLE: {POSTGRES_AVAILABLE}")
-                logger.info(f"Original URL length: {len(self.postgres_url)}")
-                
-                # Add SSL mode for Supabase
-                ssl_url = self.postgres_url
-                if '?sslmode=' not in ssl_url:
-                    ssl_url += '?sslmode=require'
-                    logger.info(f"Added SSL mode to URL")
-                
+                logger.info("✅ psycopg2 import successful")
+            except ImportError as e:
+                error_msg = f"psycopg2 not available but DATABASE_URL provided: {e}"
+                logger.error(f"❌ {error_msg}")
+                if os.getenv('RENDER'):  # Force failure on Render
+                    raise Exception(error_msg)
+                self.use_postgres = False
+                return
+            
+            # Add SSL mode for Supabase
+            ssl_url = self.postgres_url
+            if '?sslmode=' not in ssl_url:
+                ssl_url += '?sslmode=require'
+                logger.info(f"Added SSL mode to URL")
+            
+            # Test connection - fail fast if on Render
+            try:
                 logger.info(f"Attempting connection with SSL...")
                 test_conn = psycopg2.connect(ssl_url)
                 test_conn.close()
                 logger.info("✅ PostgreSQL connection test successful")
                 # Update the URL to include SSL
                 self.postgres_url = ssl_url
-            except ImportError as e:
-                logger.error(f"❌ psycopg2 import failed: {e}")
-                self.use_postgres = False
             except psycopg2.OperationalError as e:
-                logger.error(f"❌ PostgreSQL operational error: {e}")
-                logger.error(f"Connection string length: {len(self.postgres_url)}")
-                logger.error(f"URL starts with postgresql: {self.postgres_url.startswith('postgresql://')}")
+                error_msg = f"PostgreSQL operational error: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
+                logger.error(f"❌ {error_msg}")
+                if os.getenv('RENDER'):  # Force failure on Render  
+                    raise Exception(error_msg)
                 self.use_postgres = False
             except Exception as e:
-                logger.error(f"❌ PostgreSQL connection test failed: {type(e).__name__}: {e}")
-                logger.error(f"Connection string length: {len(self.postgres_url)}")
-                logger.error(f"URL starts with postgresql: {self.postgres_url.startswith('postgresql://')}")
+                error_msg = f"PostgreSQL connection test failed: {type(e).__name__}: {e}. URL length: {len(self.postgres_url)}, starts with postgresql: {self.postgres_url.startswith('postgresql://')}"
+                logger.error(f"❌ {error_msg}")
+                if os.getenv('RENDER'):  # Force failure on Render
+                    raise Exception(error_msg) 
                 self.use_postgres = False
         
         if not self.use_postgres:
-            # SQLite fallback
+            # No SQLite fallback when DATABASE_URL is provided - force error visibility
+            if self.postgres_url:
+                raise Exception(f"PostgreSQL connection failed but DATABASE_URL is provided. Check your DATABASE_URL and psycopg2 installation.")
+            
+            # Only use SQLite for local development without DATABASE_URL
             if db_path:
                 self.db_path = db_path
             else:
-                # Use /tmp for Render deployment (writable), fallback to local data dir
-                if os.environ.get('RENDER'):
-                    self.db_path = "/tmp/kb.sqlite"
-                else:
-                    self.db_path = os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
+                self.db_path = os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
         
         self._ensure_data_directory()
         self._init_database()
@@ -91,7 +111,7 @@ class DatabaseService:
                 os.makedirs(data_dir, exist_ok=True)
         
         # For file storage, use /tmp/kb on Render
-        if os.environ.get('RENDER'):
+        if os.getenv('RENDER'):
             self.kb_storage_dir = "/tmp/kb"
         else:
             self.kb_storage_dir = os.path.join(os.path.dirname(__file__), "..", "data", "kb")
