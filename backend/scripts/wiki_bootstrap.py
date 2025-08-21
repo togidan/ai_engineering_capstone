@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 CITIES = [
     "Columbus, Ohio", "Cleveland, Ohio", "Cincinnati, Ohio",
     "Austin, Texas", "Dallas, Texas", "Houston, Texas",
-    "Denver, Colorado", "Colorado Springs, Colorado", 
+    "Denver", "Colorado Springs, Colorado", 
     "Atlanta, Georgia", "Nashville, Tennessee",
     "Seattle, Washington", "Portland, Oregon",
     "Phoenix, Arizona", "Tucson, Arizona",

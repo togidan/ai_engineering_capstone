@@ -388,7 +388,7 @@ def run_bootstrap_task():
         
         # Get the scripts directory
         backend_dir = Path(__file__).parent.parent
-        script_path = backend_dir / "scripts" / "simple_demo_ingest.py"
+        script_path = backend_dir / "scripts" / "wiki_bootstrap.py"
         
         if not script_path.exists():
             logger.error("Bootstrap script not found")

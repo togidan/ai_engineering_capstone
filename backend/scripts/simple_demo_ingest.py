@@ -304,7 +304,7 @@ Training and Development Resources:
                                 chunks_data = []
                                 for chunk_id, chunk_text in zip(chunk_ids, chunks):
                                     chunks_data.append({
-                                        "milvus_pk": chunk_id,
+                                        "primary_key": chunk_id,
                                         "text": chunk_text,
                                         "jurisdiction": f"{city}, OH",
                                         "industry": "economic_development",

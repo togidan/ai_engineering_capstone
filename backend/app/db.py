@@ -205,16 +205,27 @@ class DatabaseService:
         """Insert text chunks for a document and return chunk IDs"""
         chunk_ids = []
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                for i, chunk_text in enumerate(chunks):
-                    cursor = conn.execute("""
-                        INSERT INTO chunks (doc_id, ord, text)
-                        VALUES (?, ?, ?)
-                    """, (doc_id, i, chunk_text))
-                    
-                    chunk_ids.append(cursor.lastrowid)
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor()
+                    for i, chunk_text in enumerate(chunks):
+                        cursor.execute("""
+                            INSERT INTO chunks (doc_id, ord, text)
+                            VALUES (%s, %s, %s) RETURNING id
+                        """, (doc_id, i, chunk_text))
+                        
+                        chunk_ids.append(cursor.fetchone()[0])
+                    conn.commit()
+                else:
+                    for i, chunk_text in enumerate(chunks):
+                        cursor = conn.execute("""
+                            INSERT INTO chunks (doc_id, ord, text)
+                            VALUES (?, ?, ?)
+                        """, (doc_id, i, chunk_text))
+                        
+                        chunk_ids.append(cursor.lastrowid)
+                    conn.commit()
                 
-                conn.commit()
                 logger.info(f"Inserted {len(chunk_ids)} chunks for document {doc_id}")
                 
         except Exception as e:
@@ -226,11 +237,18 @@ class DatabaseService:
     def update_chunk_milvus_pk(self, chunk_id: int, milvus_pk: int):
         """Update the Milvus primary key for a chunk"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    UPDATE chunks SET milvus_pk = ? WHERE id = ?
-                """, (milvus_pk, chunk_id))
-                conn.commit()
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE chunks SET milvus_pk = %s WHERE id = %s
+                    """, (milvus_pk, chunk_id))
+                    conn.commit()
+                else:
+                    conn.execute("""
+                        UPDATE chunks SET milvus_pk = ? WHERE id = ?
+                    """, (milvus_pk, chunk_id))
+                    conn.commit()
                 
         except Exception as e:
             logger.error(f"Failed to update chunk milvus_pk: {e}")
@@ -238,16 +256,27 @@ class DatabaseService:
     def get_document(self, doc_id: int) -> Optional[Dict[str, Any]]:
         """Get document by ID"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
-                    SELECT * FROM documents WHERE id = ?
-                """, (doc_id,))
-                
-                row = cursor.fetchone()
-                if row:
-                    return dict(row)
-                return None
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    cursor.execute("""
+                        SELECT * FROM documents WHERE id = %s
+                    """, (doc_id,))
+                    
+                    row = cursor.fetchone()
+                    if row:
+                        return dict(row)
+                    return None
+                else:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.execute("""
+                        SELECT * FROM documents WHERE id = ?
+                    """, (doc_id,))
+                    
+                    row = cursor.fetchone()
+                    if row:
+                        return dict(row)
+                    return None
                 
         except Exception as e:
             logger.error(f"Failed to get document {doc_id}: {e}")
@@ -259,37 +288,58 @@ class DatabaseService:
             return []
             
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.row_factory = sqlite3.Row
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    
+                    # Create placeholders for IN clause
+                    placeholders = ",".join("%s" for _ in milvus_pks)
+                    
+                    cursor.execute(f"""
+                        SELECT 
+                            c.id as chunk_id,
+                            c.text,
+                            c.milvus_pk,
+                            c.ord,
+                            d.id as doc_id,
+                            d.path,
+                            d.name as title,
+                            d.description,
+                            d.file_size,
+                            d.created_at
+                        FROM chunks c
+                        JOIN documents d ON c.doc_id = d.id
+                        WHERE c.milvus_pk IN ({placeholders})
+                        ORDER BY c.doc_id, c.ord
+                    """, milvus_pks)
+                    
+                    results = [dict(row) for row in cursor.fetchall()]
+                else:
+                    conn.row_factory = sqlite3.Row
+                    
+                    # Create placeholders for IN clause
+                    placeholders = ",".join("?" * len(milvus_pks))
+                    
+                    cursor = conn.execute(f"""
+                        SELECT 
+                            c.id as chunk_id,
+                            c.text,
+                            c.milvus_pk,
+                            c.ord,
+                            d.id as doc_id,
+                            d.path,
+                            d.name as title,
+                            d.description,
+                            d.file_size,
+                            d.created_at
+                        FROM chunks c
+                        JOIN documents d ON c.doc_id = d.id
+                        WHERE c.milvus_pk IN ({placeholders})
+                        ORDER BY c.doc_id, c.ord
+                    """, milvus_pks)
+                    
+                    results = [dict(row) for row in cursor.fetchall()]
                 
-                # Create placeholders for IN clause
-                placeholders = ",".join("?" * len(milvus_pks))
-                
-                cursor = conn.execute(f"""
-                    SELECT 
-                        c.id as chunk_id,
-                        c.text,
-                        c.milvus_pk,
-                        c.ord,
-                        d.id as doc_id,
-                        d.path,
-                        d.name as title,
-                        d.description,
-                        d.file_size,
-                        d.created_at
-                        -- TODO: Restore full metadata schema if needed
-                        -- d.title,
-                        -- d.jurisdiction,
-                        -- d.industry,
-                        -- d.doc_type,
-                        -- d.source_url
-                    FROM chunks c
-                    JOIN documents d ON c.doc_id = d.id
-                    WHERE c.milvus_pk IN ({placeholders})
-                    ORDER BY c.doc_id, c.ord
-                """, milvus_pks)
-                
-                results = [dict(row) for row in cursor.fetchall()]
                 logger.info(f"Retrieved {len(results)} chunks for {len(milvus_pks)} milvus_pks")
                 return results
                 
@@ -345,43 +395,33 @@ class DatabaseService:
     def get_database_stats(self) -> Dict[str, Any]:
         """Get database statistics"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("SELECT COUNT(*) FROM documents")
-                doc_count = cursor.fetchone()[0]
-                
-                cursor = conn.execute("SELECT COUNT(*) FROM chunks")
-                chunk_count = cursor.fetchone()[0]
-                
-                cursor = conn.execute("SELECT COUNT(*) FROM chunks WHERE milvus_pk IS NOT NULL")
-                indexed_chunks = cursor.fetchone()[0]
-                
-                # cursor = conn.execute("""
-                #     SELECT jurisdiction, COUNT(*) as count 
-                #     FROM documents 
-                #     WHERE jurisdiction IS NOT NULL 
-                #     GROUP BY jurisdiction 
-                #     ORDER BY count DESC 
-                #     LIMIT 10
-                # """)
-                # top_jurisdictions = [{"jurisdiction": row[0], "count": row[1]} for row in cursor.fetchall()]
-                
-                # cursor = conn.execute("""
-                #     SELECT industry, COUNT(*) as count 
-                #     FROM documents 
-                #     WHERE industry IS NOT NULL 
-                #     GROUP BY industry 
-                #     ORDER BY count DESC 
-                #     LIMIT 10
-                # """)
-                # top_industries = [{"industry": row[0], "count": row[1]} for row in cursor.fetchall()]
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor()
+                    
+                    cursor.execute("SELECT COUNT(*) FROM documents")
+                    doc_count = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM chunks")
+                    chunk_count = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM chunks WHERE milvus_pk IS NOT NULL")
+                    indexed_chunks = cursor.fetchone()[0]
+                else:
+                    cursor = conn.execute("SELECT COUNT(*) FROM documents")
+                    doc_count = cursor.fetchone()[0]
+                    
+                    cursor = conn.execute("SELECT COUNT(*) FROM chunks")
+                    chunk_count = cursor.fetchone()[0]
+                    
+                    cursor = conn.execute("SELECT COUNT(*) FROM chunks WHERE milvus_pk IS NOT NULL")
+                    indexed_chunks = cursor.fetchone()[0]
                 
                 return {
                     "documents": doc_count,
                     "chunks": chunk_count,
                     "indexed_chunks": indexed_chunks,
                     "embedding_coverage": indexed_chunks / chunk_count if chunk_count > 0 else 0
-                    # "top_jurisdictions": top_jurisdictions,
-                    # "top_industries": top_industries
                 }
                 
         except Exception as e:
