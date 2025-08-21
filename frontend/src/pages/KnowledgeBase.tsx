@@ -125,7 +125,8 @@ function KnowledgeBase() {
   const loadStats = async () => {
     setLoadingStats(true)
     try {
-      const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
+      const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${base}/kb/stats?t=${Date.now()}`, { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -175,7 +176,8 @@ function KnowledgeBase() {
   const startProgressPolling = () => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
+        const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'
+        const response = await fetch(`${base}/kb/stats?t=${Date.now()}`, { cache: 'no-store' })
         if (response.ok) {
           const data = await response.json()
           setStats(data)

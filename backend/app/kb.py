@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Request, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, Path, Request, BackgroundTasks, Response
 from fastapi.responses import FileResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -339,8 +339,13 @@ async def read_file(file_path: str):
         )
 
 @router.get("/stats")
-async def get_knowledge_base_stats():
+async def get_knowledge_base_stats(response: Response):
     """Get knowledge base statistics"""
+    
+    # Disable caching so clients always receive fresh stats
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     
     # Debug database connection
     logger.info(f"Stats endpoint: Using PostgreSQL: {db_service.use_postgres}")
@@ -445,6 +450,10 @@ def run_bootstrap_task():
         # Set API_URL to point to localhost since the script runs on the same container
         env['API_URL'] = 'http://localhost:8000'
         logger.info(f"Setting API_URL for bootstrap script: {env.get('API_URL')}")
+        
+        # Force PostgreSQL in bootstrap subprocess to avoid SQLite fallback
+        env['FORCE_POSTGRES'] = '1'
+        logger.info("Setting FORCE_POSTGRES=1 for bootstrap script to use PostgreSQL")
         
         # Run the script with full environment
         result = subprocess.run([

@@ -19,6 +19,10 @@ sys.path.append(str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
+# Force Postgres for bootstrap to avoid SQLite fallback when DATABASE_URL is set
+if os.environ.get('DATABASE_URL') and os.environ.get('FORCE_POSTGRES') != '1':
+    os.environ['FORCE_POSTGRES'] = '1'
+
 # Import database services at module level (like test script)
 from app.db import db_service
 from app.milvus_utils import milvus_service  
