@@ -342,8 +342,16 @@ async def read_file(file_path: str):
 async def get_knowledge_base_stats():
     """Get knowledge base statistics"""
     
+    # Debug database connection
+    logger.info(f"Stats endpoint: Using PostgreSQL: {db_service.use_postgres}")
+    if hasattr(db_service, 'postgres_url') and db_service.postgres_url:
+        url_parts = db_service.postgres_url.split('@')
+        if len(url_parts) > 1:
+            logger.info(f"Stats endpoint: PostgreSQL host: {url_parts[1].split('?')[0]}")
+    
     # Get database stats
     db_stats = db_service.get_database_stats()
+    logger.info(f"Stats endpoint: Database stats: {db_stats}")
     
     # Get Milvus stats
     milvus_stats = milvus_service.get_collection_stats() if milvus_service.is_available() else {"error": "Milvus not available"}

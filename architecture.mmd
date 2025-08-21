@@ -1,0 +1,91 @@
+graph TB
+    %% Frontend Layer
+    subgraph "Frontend (React + Vite)"
+        UI[React Components]
+        CityScoring[City Scoring Module]
+        RFPWorkflow[RFP Workflow Module]
+        KnowledgeBase[Knowledge Base Management]
+        RAGSearch[RAG Search Interface]
+    end
+
+    %% Static Data
+    subgraph "Static Data (Client-side)"
+        CitiesCSV[cities.csv<br/>Economic metrics for 10 demo cities]
+        IndustriesJSON[industries.json<br/>Industry templates & scoring weights]
+        BoundsJSON[bounds.json<br/>Normalization bounds for scoring]
+    end
+
+    %% Backend Layer
+    subgraph "Backend (FastAPI + Python)"
+        APIRoutes[API Routes]
+        RFPService[RFP Processing Service]
+        KBService[Knowledge Base Service]
+        LLMService[LLM Service<br/>OpenAI GPT Integration]
+        FileService[File Processing Service<br/>PDF/DOCX/TXT]
+        TextProcessor[Text Processing<br/>Chunking & Metadata]
+    end
+
+    %% Database Layer
+    subgraph "Database Layer"
+        PostgreSQL[(Supabase PostgreSQL<br/>Documents & Chunks)]
+        Milvus[(Milvus Vector DB<br/>Embeddings & Search)]
+        SQLite[(SQLite<br/>Local Development)]
+    end
+
+    %% External Services
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>Embeddings & LLM]
+        Wikipedia[Wikipedia API<br/>City Economic Data]
+    end
+
+    %% Data Flow Connections
+    UI --> CityScoring
+    UI --> RFPWorkflow
+    UI --> KnowledgeBase
+    UI --> RAGSearch
+    
+    CityScoring --> CitiesCSV
+    CityScoring --> IndustriesJSON
+    CityScoring --> BoundsJSON
+    
+    RFPWorkflow --> APIRoutes
+    KnowledgeBase --> APIRoutes
+    RAGSearch --> APIRoutes
+    
+    APIRoutes --> RFPService
+    APIRoutes --> KBService
+    
+    RFPService --> LLMService
+    RFPService --> FileService
+    KBService --> TextProcessor
+    KBService --> FileService
+    
+    LLMService --> OpenAI
+    TextProcessor --> OpenAI
+    
+    KBService --> PostgreSQL
+    KBService --> Milvus
+    KBService --> SQLite
+    
+    %% Bootstrap Process
+    subgraph "Bootstrap Process"
+        WikiBootstrap[wiki_bootstrap.py<br/>Wikipedia Data Ingestion]
+        SimpleDemo[simple_demo_ingest.py<br/>Synthetic Demo Data]
+    end
+    
+    WikiBootstrap --> Wikipedia
+    WikiBootstrap --> KBService
+    SimpleDemo --> KBService
+    
+    %% Styling
+    classDef frontend fill:#e1f5fe
+    classDef backend fill:#f3e5f5
+    classDef database fill:#e8f5e8
+    classDef external fill:#fff3e0
+    classDef bootstrap fill:#fce4ec
+    
+    class UI,CityScoring,RFPWorkflow,KnowledgeBase,RAGSearch frontend
+    class APIRoutes,RFPService,KBService,LLMService,FileService,TextProcessor backend
+    class PostgreSQL,Milvus,SQLite database
+    class OpenAI,Wikipedia external
+    class WikiBootstrap,SimpleDemo bootstrap
