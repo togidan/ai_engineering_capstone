@@ -394,15 +394,30 @@ def run_bootstrap_task():
             logger.error("Bootstrap script not found")
             return
         
-        # Run the script
+        # Prepare environment with current environment variables
+        env = os.environ.copy()
+        
+        # Ensure the script has access to necessary environment variables
+        if 'DATABASE_URL' in env:
+            logger.info(f"DATABASE_URL available to subprocess: {bool(env.get('DATABASE_URL'))}")
+        else:
+            logger.warning("DATABASE_URL not found in environment for subprocess")
+            
+        # Set API_URL to point to localhost since the script runs on the same container
+        env['API_URL'] = 'http://localhost:8000'
+        logger.info(f"Setting API_URL for bootstrap script: {env.get('API_URL')}")
+        
+        # Run the script with full environment
         result = subprocess.run([
             sys.executable, str(script_path)
-        ], capture_output=True, text=True, cwd=str(backend_dir), timeout=900)
+        ], capture_output=True, text=True, cwd=str(backend_dir), timeout=900, env=env)
         
         if result.returncode == 0:
             logger.info("✅ Background bootstrap completed successfully!")
+            logger.info(f"Bootstrap stdout: {result.stdout[-500:]}")  # Last 500 chars
         else:
             logger.error(f"❌ Background bootstrap failed: {result.stderr}")
+            logger.error(f"Bootstrap stdout: {result.stdout}")
             
     except Exception as e:
         logger.error(f"Background bootstrap error: {e}")

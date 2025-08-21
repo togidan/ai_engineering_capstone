@@ -137,31 +137,66 @@ class WikiBootstrapper:
         return filtered_content
     
     def upload_to_kb(self, city_name: str, content: str, source_url: str) -> bool:
-        """Upload content to knowledge base via API"""
+        """Upload content directly to database"""
         try:
-            # Create a text file in memory
+            from app.db import db_service
+            from app.milvus_utils import milvus_service
+            from app.text_utils import text_processor
+            
+            # Create document content
             file_content = f"# {city_name} Economic Development Profile\n\n"
             file_content += f"Source: Wikipedia - {source_url}\n\n"
             file_content += content
             
-            # Prepare file upload
-            files = {
-                'file': (f"{city_name.replace(', ', '_')}_econ_profile.txt", 
-                        file_content.encode('utf-8'), 
-                        'text/plain')
-            }
+            # Extract metadata
+            auto_metadata = text_processor.extract_metadata(file_content, f"{city_name}_econ_profile")
             
-            # Upload to KB
-            response = requests.post(f"{API_BASE}/kb/upload", files=files, timeout=60)
+            # Insert document into database
+            doc_id = db_service.insert_document(
+                path=f"/virtual/{city_name.replace(', ', '_')}_econ_profile.txt",
+                name=f"{city_name} Economic Development Profile",
+                file_size=len(file_content.encode('utf-8')),
+                description=auto_metadata["summary"]
+            )
             
-            if response.status_code == 200:
-                result = response.json()
-                self.total_documents += 1
-                self.total_chunks += result.get('chunk_count', 0)
-                logger.info(f"   ✅ Uploaded: {result.get('chunk_count', 0)} chunks")
-                return True
+            if doc_id:
+                # Generate chunks
+                chunks = text_processor.chunk_text(file_content)
+                
+                if chunks:
+                    # Insert chunks
+                    chunk_ids = db_service.insert_chunks(doc_id, chunks)
+                    
+                    if chunk_ids:
+                        # Prepare data for Milvus insertion
+                        chunks_data = []
+                        for chunk_id, chunk_text in zip(chunk_ids, chunks):
+                            chunks_data.append({
+                                "primary_key": chunk_id,
+                                "text": chunk_text,
+                                "jurisdiction": city_name,
+                                "industry": "economic_development",
+                                "doc_type": "city_profile"
+                            })
+                        
+                        # Insert into Milvus
+                        if milvus_service.is_available() and milvus_service.insert_chunks(chunks_data):
+                            # Update chunk records with milvus_pk
+                            for chunk_id in chunk_ids:
+                                db_service.update_chunk_milvus_pk(chunk_id, chunk_id)
+                        
+                        self.total_documents += 1
+                        self.total_chunks += len(chunks)
+                        logger.info(f"   ✅ Uploaded: {len(chunks)} chunks")
+                        return True
+                    else:
+                        logger.error(f"   ❌ Failed to insert chunks for {city_name}")
+                        return False
+                else:
+                    logger.error(f"   ❌ No chunks generated for {city_name}")
+                    return False
             else:
-                logger.error(f"   ❌ Upload failed: {response.status_code} - {response.text}")
+                logger.error(f"   ❌ Failed to insert document for {city_name}")
                 return False
                 
         except Exception as e:
@@ -197,16 +232,28 @@ def main():
     logger.info("🌐 Starting Wikipedia bootstrap for Knowledge Base...")
     logger.info(f"📋 Processing {len(CITIES)} cities for economic development data")
     
-    # Test API connectivity
+    # Test database connectivity
     try:
-        response = requests.get(f"{API_BASE}/kb/stats", timeout=10)
-        if response.status_code != 200:
-            logger.error(f"❌ Cannot connect to API at {API_BASE}")
+        from app.db import db_service
+        from app.milvus_utils import milvus_service
+        
+        # Test database connection
+        stats = db_service.get_database_stats()
+        if "error" in stats:
+            logger.error(f"❌ Database connection failed: {stats['error']}")
             return False
-        logger.info("✅ API connectivity confirmed")
+        
+        logger.info("✅ Database connectivity confirmed")
+        logger.info(f"📊 Current DB stats: {stats}")
+        
+        # Test Milvus availability
+        if milvus_service.is_available():
+            logger.info("✅ Milvus service available")
+        else:
+            logger.warning("⚠️ Milvus service not available - chunks won't be indexed for search")
+            
     except Exception as e:
-        logger.error(f"❌ API connection failed: {e}")
-        logger.info("💡 Make sure the backend server is running: uvicorn app.main:app --reload")
+        logger.error(f"❌ Database connection failed: {e}")
         return False
     
     bootstrapper = WikiBootstrapper()
@@ -244,12 +291,12 @@ def main():
     else:
         logger.warning(f"⚠️  Only {bootstrapper.total_chunks} chunks created, target was 1000")
     
-    # Get final stats from API
+    # Get final stats from database
     try:
-        response = requests.get(f"{API_BASE}/kb/stats")
-        if response.status_code == 200:
-            stats = response.json()
-            logger.info(f"📈 Final KB stats: {stats}")
+        final_stats = db_service.get_database_stats()
+        milvus_stats = milvus_service.get_collection_stats() if milvus_service.is_available() else {"error": "Milvus not available"}
+        logger.info(f"📈 Final DB stats: {final_stats}")
+        logger.info(f"📈 Final Milvus stats: {milvus_stats}")
     except Exception as e:
         logger.warning(f"Could not fetch final stats: {e}")
     
