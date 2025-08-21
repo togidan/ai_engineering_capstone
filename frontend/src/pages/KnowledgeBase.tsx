@@ -155,7 +155,6 @@ function KnowledgeBase() {
         
         // Start polling for progress
         setIsProcessing(true)
-        setProgressStats({documents: 0, chunks: 0})
         startProgressPolling()
       } else {
         const errorData = await response.json()
@@ -179,24 +178,12 @@ function KnowledgeBase() {
         const response = await fetch(`${(import.meta as any).env?.VITE_API_URL || 'http://localhost:8000'}/kb/stats`)
         if (response.ok) {
           const data = await response.json()
-          const newStats = {
-            documents: data.database?.documents || 0,
-            chunks: data.database?.chunks || 0
-          }
-          
-          setProgressStats(newStats)
           setStats(data)
-          
-          // Stop polling when we have substantial data (estimated complete)
-          if (newStats.documents >= 110 && newStats.chunks >= 1000) { // 22 cities × 5 doc types = 110 docs
-            setIsProcessing(false)
-            clearInterval(pollInterval)
-          }
         }
       } catch (err) {
         console.error('Progress polling error:', err)
       }
-    }, 3000) // Poll every 3 seconds
+    }, 5000) // Poll every 5 seconds
 
     // Auto-stop after 20 minutes max
     setTimeout(() => {
@@ -375,41 +362,15 @@ function KnowledgeBase() {
                   <CardBody>
                     <VStack spacing={3} align="stretch">
                       <HStack justify="space-between">
-                        <Heading size="sm">🔄 Processing Demo Data...</Heading>
+                        <Heading size="sm">🔄 Loading Wikipedia Data...</Heading>
                         <Spinner size="sm" />
                       </HStack>
                       
-                      {progressStats && (
-                        <VStack spacing={2} align="stretch">
-                          <HStack justify="space-between">
-                            <Text fontSize="sm">Documents processed:</Text>
-                            <Text fontSize="sm" fontWeight="bold">{progressStats.documents} / ~110</Text>
-                          </HStack>
-                          <Progress 
-                            value={(progressStats.documents / 110) * 100} 
-                            colorScheme="blue" 
-                            size="sm"
-                            hasStripe
-                            isAnimated
-                          />
-                          
-                          <HStack justify="space-between">
-                            <Text fontSize="sm">Chunks generated:</Text>
-                            <Text fontSize="sm" fontWeight="bold">{progressStats.chunks} / ~1000+</Text>
-                          </HStack>
-                          <Progress 
-                            value={Math.min((progressStats.chunks / 1000) * 100, 100)} 
-                            colorScheme="green" 
-                            size="sm"
-                            hasStripe
-                            isAnimated
-                          />
-                          
-                          <Text fontSize="xs" color="gray.500" textAlign="center">
-                            This process takes 10-15 minutes. You can navigate away and come back.
-                          </Text>
-                        </VStack>
-                      )}
+                      <Text fontSize="sm" color="gray.600" textAlign="center">
+                        Downloading and processing Wikipedia articles for 26 major US cities.
+                        This process takes approximately 10-15 minutes.
+                        You can navigate away and come back - the process will continue in the background.
+                      </Text>
                     </VStack>
                   </CardBody>
                 </Card>

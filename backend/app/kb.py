@@ -400,8 +400,14 @@ def run_bootstrap_task():
         # Ensure the script has access to necessary environment variables
         if 'DATABASE_URL' in env:
             logger.info(f"DATABASE_URL available to subprocess: {bool(env.get('DATABASE_URL'))}")
+            logger.info(f"DATABASE_URL length: {len(env.get('DATABASE_URL', ''))}")
         else:
             logger.warning("DATABASE_URL not found in environment for subprocess")
+            
+        # Log other important environment variables
+        logger.info(f"OPENAI_API_KEY available: {bool(env.get('OPENAI_API_KEY'))}")
+        logger.info(f"MILVUS_HOST available: {bool(env.get('MILVUS_HOST'))}")
+        logger.info(f"RENDER environment: {bool(env.get('RENDER'))}")
             
         # Set API_URL to point to localhost since the script runs on the same container
         env['API_URL'] = 'http://localhost:8000'

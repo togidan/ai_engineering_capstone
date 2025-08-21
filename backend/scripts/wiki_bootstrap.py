@@ -19,6 +19,11 @@ sys.path.append(str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv()
 
+# Import database services at module level (like test script)
+from app.db import db_service
+from app.milvus_utils import milvus_service  
+from app.text_utils import text_processor
+
 try:
     import wikipedia
 except ImportError:
@@ -139,9 +144,6 @@ class WikiBootstrapper:
     def upload_to_kb(self, city_name: str, content: str, source_url: str) -> bool:
         """Upload content directly to database"""
         try:
-            from app.db import db_service
-            from app.milvus_utils import milvus_service
-            from app.text_utils import text_processor
             
             # Create document content
             file_content = f"# {city_name} Economic Development Profile\n\n"
@@ -150,22 +152,27 @@ class WikiBootstrapper:
             
             # Extract metadata
             auto_metadata = text_processor.extract_metadata(file_content, f"{city_name}_econ_profile")
+            logger.info(f"   📝 Generated metadata: {auto_metadata.get('summary', 'No summary')[:100]}...")
             
             # Insert document into database
+            logger.info(f"   💾 Inserting document for {city_name}...")
             doc_id = db_service.insert_document(
                 path=f"/virtual/{city_name.replace(', ', '_')}_econ_profile.txt",
                 name=f"{city_name} Economic Development Profile",
                 file_size=len(file_content.encode('utf-8')),
                 description=auto_metadata["summary"]
             )
+            logger.info(f"   📄 Document inserted with ID: {doc_id}")
             
             if doc_id:
                 # Generate chunks
                 chunks = text_processor.chunk_text(file_content)
                 
                 if chunks:
+                    logger.info(f"   🔢 Generated {len(chunks)} chunks")
                     # Insert chunks
                     chunk_ids = db_service.insert_chunks(doc_id, chunks)
+                    logger.info(f"   📦 Inserted chunks with IDs: {chunk_ids[:3] if chunk_ids else 'None'}...")
                     
                     if chunk_ids:
                         # Prepare data for Milvus insertion
@@ -234,8 +241,16 @@ def main():
     
     # Test database connectivity
     try:
-        from app.db import db_service
-        from app.milvus_utils import milvus_service
+        
+        # Log database configuration details
+        logger.info(f"🔍 Database service using PostgreSQL: {db_service.use_postgres}")
+        if hasattr(db_service, 'postgres_url'):
+            logger.info(f"🔍 PostgreSQL URL configured: {bool(db_service.postgres_url)}")
+            if db_service.postgres_url:
+                # Log partial URL for debugging (without sensitive info)
+                url_parts = db_service.postgres_url.split('@')
+                if len(url_parts) > 1:
+                    logger.info(f"🔍 PostgreSQL host: {url_parts[1].split('?')[0]}")
         
         # Test database connection
         stats = db_service.get_database_stats()
@@ -246,6 +261,19 @@ def main():
         logger.info("✅ Database connectivity confirmed")
         logger.info(f"📊 Current DB stats: {stats}")
         
+        # Test a simple query to verify we're connected to the right database
+        try:
+            with db_service._get_connection() as conn:
+                if db_service.use_postgres:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT current_database();")
+                    db_name = cursor.fetchone()[0]
+                    logger.info(f"🗄️ Connected to PostgreSQL database: {db_name}")
+                else:
+                    logger.info(f"🗄️ Connected to SQLite database: {db_service.db_path}")
+        except Exception as e:
+            logger.warning(f"Could not verify database name: {e}")
+        
         # Test Milvus availability
         if milvus_service.is_available():
             logger.info("✅ Milvus service available")
@@ -254,6 +282,7 @@ def main():
             
     except Exception as e:
         logger.error(f"❌ Database connection failed: {e}")
+        logger.error(f"❌ Exception details: {type(e).__name__}: {str(e)}")
         return False
     
     bootstrapper = WikiBootstrapper()
