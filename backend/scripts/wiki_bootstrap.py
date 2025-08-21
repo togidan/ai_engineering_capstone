@@ -191,10 +191,12 @@ class WikiBootstrapper:
                             })
                         
                         # Insert into Milvus
-                        if milvus_service.is_available() and milvus_service.insert_chunks(chunks_data):
-                            # Update chunk records with milvus_pk
-                            for chunk_id in chunk_ids:
-                                db_service.update_chunk_milvus_pk(chunk_id, chunk_id)
+                        if milvus_service.is_available():
+                            pks = milvus_service.insert_chunks(chunks_data)
+                            if pks:
+                                # Update chunk records with correct Milvus primary keys
+                                for chunk_id, pk in zip(chunk_ids, pks):
+                                    db_service.update_chunk_milvus_pk(chunk_id, int(pk))
                         
                         self.total_documents += 1
                         self.total_chunks += len(chunks)

@@ -504,12 +504,8 @@ async def agent_search_and_read(request: SearchRequest):
     """Agent endpoint: Search KB and return full document content"""
     from app.agent_service import agent_service
     
-    # Domain guard
-    if not text_processor.validate_domain_query(request.query):
-        raise HTTPException(
-            status_code=400,
-            detail="Query outside economic development domain scope"
-        )
+    # Domain guard removed to allow free-text queries
+    # Previously restricted to economic development terms.
     
     results = await agent_service.search_and_read(
         query=request.query,

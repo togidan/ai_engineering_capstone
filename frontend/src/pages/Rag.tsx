@@ -116,7 +116,7 @@ function Rag() {
             <VStack spacing={4} align="stretch">
               <HStack>
                 <Input
-                  placeholder="Search for economic development information..."
+                  placeholder="Search for economic development information... such as economic, municipality, incentive, etc."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyPress={handleKeyPress}
