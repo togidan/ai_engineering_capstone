@@ -5,21 +5,42 @@ from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 import json
 
+# PostgreSQL support
+try:
+    import psycopg2
+    import psycopg2.extras
+    POSTGRES_AVAILABLE = True
+except ImportError:
+    POSTGRES_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class DatabaseService:
     def __init__(self, db_path: str = None):
-        if db_path:
-            self.db_path = db_path
-        else:
-            # Use /tmp for Render deployment (writable), fallback to local data dir
-            if os.environ.get('RENDER'):
-                self.db_path = "/tmp/kb.sqlite"
+        # Check if PostgreSQL URL is provided
+        self.postgres_url = os.environ.get('DATABASE_URL')
+        self.use_postgres = bool(self.postgres_url and POSTGRES_AVAILABLE)
+        
+        if not self.use_postgres:
+            # SQLite fallback
+            if db_path:
+                self.db_path = db_path
             else:
-                self.db_path = os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
+                # Use /tmp for Render deployment (writable), fallback to local data dir
+                if os.environ.get('RENDER'):
+                    self.db_path = "/tmp/kb.sqlite"
+                else:
+                    self.db_path = os.path.join(os.path.dirname(__file__), "..", "data", "kb.sqlite")
         
         self._ensure_data_directory()
         self._init_database()
+    
+    def _get_connection(self):
+        """Get database connection (PostgreSQL or SQLite)"""
+        if self.use_postgres:
+            return psycopg2.connect(self.postgres_url)
+        else:
+            return sqlite3.connect(self.db_path)
     
     def _ensure_data_directory(self):
         """Ensure the data directory exists"""
@@ -36,43 +57,81 @@ class DatabaseService:
         os.makedirs(self.kb_storage_dir, exist_ok=True)
     
     def _init_database(self):
-        """Initialize the SQLite database with required tables"""
+        """Initialize the database with required tables"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute("PRAGMA foreign_keys = ON")
-                
-                # Documents table - clean schema for LLM-generated metadata
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS documents (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        path TEXT NOT NULL,
-                        name TEXT NOT NULL,
-                        file_size INTEGER NOT NULL,
-                        description TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                
-                # Chunks table
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS chunks (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        doc_id INTEGER NOT NULL,
-                        ord INTEGER NOT NULL,
-                        text TEXT NOT NULL,
-                        milvus_pk INTEGER UNIQUE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (doc_id) REFERENCES documents (id) ON DELETE CASCADE
-                    )
-                """)
-                
-                # Create indexes
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_name ON documents(name)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_milvus_pk ON chunks(milvus_pk)")
-                
-                conn.commit()
-                logger.info(f"Database initialized at {self.db_path}")
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    # PostgreSQL schema
+                    cursor = conn.cursor()
+                    
+                    # Documents table
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS documents (
+                            id SERIAL PRIMARY KEY,
+                            path TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            file_size INTEGER NOT NULL,
+                            description TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    
+                    # Chunks table
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS chunks (
+                            id SERIAL PRIMARY KEY,
+                            doc_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                            ord INTEGER NOT NULL,
+                            text TEXT NOT NULL,
+                            milvus_pk INTEGER UNIQUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    
+                    # Create indexes for PostgreSQL
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_documents_name ON documents(name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chunks_milvus_pk ON chunks(milvus_pk)")
+                    
+                    conn.commit()
+                    logger.info(f"PostgreSQL database initialized")
+                    
+                else:
+                    # SQLite schema (original)
+                    conn.execute("PRAGMA foreign_keys = ON")
+                    
+                    # Documents table
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS documents (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            path TEXT NOT NULL,
+                            name TEXT NOT NULL,
+                            file_size INTEGER NOT NULL,
+                            description TEXT NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    
+                    # Chunks table
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS chunks (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            doc_id INTEGER NOT NULL,
+                            ord INTEGER NOT NULL,
+                            text TEXT NOT NULL,
+                            milvus_pk INTEGER UNIQUE,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (doc_id) REFERENCES documents (id) ON DELETE CASCADE
+                        )
+                    """)
+                    
+                    # Create indexes for SQLite
+                    conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_name ON documents(name)")
+                    conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON chunks(doc_id)")
+                    conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_milvus_pk ON chunks(milvus_pk)")
+                    
+                    conn.commit()
+                    logger.info(f"SQLite database initialized at {self.db_path}")
                 
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
@@ -87,15 +146,27 @@ class DatabaseService:
     ) -> Optional[int]:
         """Insert a new document with LLM-generated metadata"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
-                    INSERT INTO documents 
-                    (path, name, file_size, description)
-                    VALUES (?, ?, ?, ?)
-                """, (path, name, file_size, description))
+            with self._get_connection() as conn:
+                if self.use_postgres:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO documents 
+                        (path, name, file_size, description)
+                        VALUES (%s, %s, %s, %s) RETURNING id
+                    """, (path, name, file_size, description))
+                    
+                    doc_id = cursor.fetchone()[0]
+                    conn.commit()
+                else:
+                    cursor = conn.execute("""
+                        INSERT INTO documents 
+                        (path, name, file_size, description)
+                        VALUES (?, ?, ?, ?)
+                    """, (path, name, file_size, description))
+                    
+                    doc_id = cursor.lastrowid
+                    conn.commit()
                 
-                doc_id = cursor.lastrowid
-                conn.commit()
                 logger.info(f"Inserted document {doc_id}: {name}")
                 return doc_id
                 
