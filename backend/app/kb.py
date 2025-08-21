@@ -172,7 +172,12 @@ async def upload_document(
 async def search_knowledge_base(request: Request, payload: SearchRequest):
     """Search knowledge base with hybrid approach"""
     
-    # Domain guard removed to allow free-text queries
+    # Domain guard - validate query contains economic development terms
+    if not text_processor.validate_domain_query(payload.query):
+        return SearchResponse(
+            hits=[],
+            out_of_scope=True
+        )
     
     if not milvus_service.is_available():
         raise HTTPException(
@@ -194,15 +199,6 @@ async def search_knowledge_base(request: Request, payload: SearchRequest):
         # Get chunk details from database
         milvus_pks = [hit["primary_key"] for hit in milvus_hits]
         chunks_data = db_service.get_chunks_by_milvus_pks(milvus_pks)
-        
-        # Debug mapping between Milvus PKs and DB rows
-        found_pks = {c.get("milvus_pk") for c in chunks_data}
-        missing = [pk for pk in milvus_pks if pk not in found_pks]
-        logger.info(
-            f"Milvus hits: {len(milvus_hits)}, DB chunks found: {len(chunks_data)}, missing mappings: {len(missing)}"
-        )
-        if missing[:5]:
-            logger.info(f"Sample missing PKs: {missing[:5]}")
         
         # Create lookup for chunk data
         chunk_lookup = {chunk["milvus_pk"]: chunk for chunk in chunks_data}
@@ -239,6 +235,11 @@ async def search_knowledge_base(request: Request, payload: SearchRequest):
                 file_path=chunk_data["path"],
                 text=text_snippet,
                 score=final_score
+                # TODO: Restore full metadata when schema is expanded
+                # jurisdiction=chunk_data["jurisdiction"],
+                # industry=chunk_data["industry"],
+                # doc_type=chunk_data["doc_type"],
+                # source_url=chunk_data["source_url"],
             ))
         
         # Sort by final score and return top k
@@ -258,48 +259,6 @@ async def search_knowledge_base(request: Request, payload: SearchRequest):
             status_code=500,
             detail=f"Search failed: {str(e)}"
         )
-
-@router.post("/reindex_missing")
-@limiter.limit("2/minute")
-async def reindex_missing_chunks(limit: int = 1000):
-    """Reindex chunks missing Milvus PK by generating embeddings and inserting into Milvus."""
-    if not milvus_service.is_available():
-        raise HTTPException(status_code=503, detail="Milvus not available")
-    
-    try:
-        missing_chunks = db_service.get_chunks_missing_milvus(limit=limit)
-        if not missing_chunks:
-            return {"reindexed": 0, "message": "No chunks missing Milvus PK"}
-        
-        # Prepare chunks_data for Milvus
-        chunks_data = []
-        for ch in missing_chunks:
-            chunks_data.append({
-                "text": ch["text"],
-                "jurisdiction": "",
-                "industry": "",
-                "doc_type": "",
-            })
-        
-        pks = milvus_service.insert_chunks(chunks_data)
-        if not pks:
-            raise HTTPException(status_code=500, detail="Failed to insert embeddings into Milvus")
-        
-        # Update DB with returned PKs in order
-        updated = 0
-        for ch, pk in zip(missing_chunks, pks):
-            try:
-                db_service.update_chunk_milvus_pk(ch["chunk_id"], int(pk))
-                updated += 1
-            except Exception as e:
-                logger.warning(f"Failed to update chunk {ch['chunk_id']} with PK {pk}: {e}")
-        
-        return {"reindexed": updated, "requested": len(missing_chunks)}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Reindexing failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Reindexing failed: {str(e)}")
 
 @router.get("/doc/{doc_id}")
 async def get_document(doc_id: int):
@@ -545,8 +504,12 @@ async def agent_search_and_read(request: SearchRequest):
     """Agent endpoint: Search KB and return full document content"""
     from app.agent_service import agent_service
     
-    # Domain guard removed to allow free-text queries
-    # Previously restricted to economic development terms.
+    # Domain guard
+    if not text_processor.validate_domain_query(request.query):
+        raise HTTPException(
+            status_code=400,
+            detail="Query outside economic development domain scope"
+        )
     
     results = await agent_service.search_and_read(
         query=request.query,
